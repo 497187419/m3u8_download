@@ -26,10 +26,10 @@ runtime_path = os.getcwd() + DS + "runtime" + DS + "temp"
 IDM = r'D:\Program Files\idman_lv\IDMan.exe'
 
 m3u8_list = [
-	'https://yun.66dm.net/SBDM/OusamaRanking21.m3u8'
+	'https://yun.66dm.net/SBDM/ArifuretaShokugyoudeSekaiSaikyou209.m3u8'
 ]
 output_filename = [
-	'国王排名 第21集'
+	'平凡职业造就世界 第9集'
 ]
 headers = {
 	'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36',
@@ -59,7 +59,7 @@ def download(url, save_name):
 				# pd_url = 'https://gzmu.rondom.cn'+ file_line[index + 1]
 				pd_url = file_line[index + 1]
 				# print(pd_url)
-				res = requests.get(url=pd_url, headers=headers, verify=False)
+				res = requests.get(url=pd_url, headers=headers)
 				# print(res)
 				# os._exit(0)
 				c_fule_name = str(var_num).rjust(4, "0")
