@@ -3,13 +3,9 @@
 # coding:utf8
 # -*- coding: UTF-8 -*-
 
-from urllib.parse import urlparse,parse_qsl,unquote
 from subprocess import call
 import urllib.request
 import requests
-import hashlib
-import base64
-import json
 import time
 import re
 import os
@@ -26,10 +22,10 @@ runtime_path = os.getcwd() + DS + "runtime" + DS + "temp"
 IDM = r'D:\Program Files\idman_lv\IDMan.exe'
 
 m3u8_list = [
-	'https://yun.66dm.net/SBDM/ArifuretaShokugyoudeSekaiSaikyou209.m3u8'
+	'https://yun.66dm.net/SBDM/AinoUtagoewoKikasete.m3u8'
 ]
 output_filename = [
-	'平凡职业造就世界 第9集'
+	'聆听爱的歌声吧'
 ]
 headers = {
 	'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36',
@@ -41,7 +37,8 @@ def download(url, save_name):
 	if not os.path.exists(download_path):
 		os.mkdir(download_path)
 	# 获取M3U8的文件内容
-	all_content = requests.get(url).text
+	all_content = requests.get(url=url, headers=headers)
+	all_content = all_content.text
 	# 读取文件里的每一行
 	file_line = all_content.split("\n")
 	# 通过判断文件头来确定是否是M3U8文件
@@ -56,12 +53,9 @@ def download(url, save_name):
 				# 递增视频序号
 				var_num = var_num + 1
 				unknow = False
-				# pd_url = 'https://gzmu.rondom.cn'+ file_line[index + 1]
 				pd_url = file_line[index + 1]
 				# print(pd_url)
 				res = requests.get(url=pd_url, headers=headers)
-				# print(res)
-				# os._exit(0)
 				c_fule_name = str(var_num).rjust(4, "0")
 				print('下载到 '+ download_path + DS + c_fule_name)
 				with open(download_path + DS + c_fule_name, 'wb') as f:
