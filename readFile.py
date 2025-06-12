@@ -1,63 +1,53 @@
 #!/usr/bin/python
-# coding=utf8
-# coding:utf8
 # -*- coding: UTF-8 -*-
 
-import urllib.request
-import requests
-import time
+from m3u8_download import M3u8Downloader
 import os
+from urllib.parse import urljoin
 
-# 【脚本】直接解析m3u8文件并下载
+class LocalM3u8Reader(M3u8Downloader):
+    def __init__(self, file_path: str, base_url: str = ''):
+        super().__init__()
+        self.file_path = file_path
+        self.base_url = base_url
+        self.headers.update({
+            'Host': 'yef.coderatian.top',
+            'Origin': 'https://www.kelatv.com',
+            'Accept': '*/*'
+        })
 
-file_path = 'demo.m3u8'
+    def process_file(self, save_name: str) -> bool:
+        try:
+            with open(self.file_path, "r") as f:
+                content = [line.strip() for line in f.readlines()]
 
-headers = {
-	'Host':'yef.coderatian.top',
-	'Connection':'keep-alive',
-	'User-Agent':'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36',
-	'Accept':'*/*',
-	'Origin':'https://www.kelatv.com',
-	'Sec-Fetch-Site':'cross-site',
-	'Sec-Fetch-Mode':'cors',
-	'Sec-Fetch-Dest':'empty',
-	'Accept-Encoding':'gzip, deflate, br',
-	'Accept-Language':'zh-CN,zh;q=0.9,en;q=0.8',
-	'Referer':'https://www.kelatv.com/api/haliapi.php?v=a284w0fU5JH9HYrH1a2z1G5VDsnWMddP3Zp06hcIHScAkkbqtWIEXvnq6xfZj-bQE2wIyVoVw-2Wt2HKFjt4cz1ekG5gRw&name=noY&sign=dacf3238bc125e7cd74991d14580db56&time=1647239740'
-}
+            if not content or content[0] != "#EXTM3U":
+                print("无效的M3U8文件")
+                return False
 
-with open(file_path, "r") as f:
-	file_line = f.readlines()
-	if file_line[0].strip('\n') != "#EXTM3U":
-		print(u"非M3U8的链接")
-		os._exit(0)
-	else:
-		var_num = 0
-		unknow = True   # 用来判断是否找到了下载的地址
-		for index, line in enumerate(file_line):
-			if "EXTINF" in line:
-				# 递增视频序号
-				var_num = var_num + 1
-				unknow = False
-				pd_url = 'https://yef.coderatian.top'+ file_line[index + 1]
-				# pd_url = file_line[index + 1]
-				print(42, pd_url)
-				res = requests.get(url=pd_url, headers=headers)
-				c_fule_name = str(var_num).rjust(4, "0")
-				print('下载到 '+ download_path + DS + c_fule_name)
-				with open(download_path + DS + c_fule_name, 'wb') as f:
-					f.write(res.content)
-					f.flush()
-		if unknow:
-			raise BaseException("未找到对应的下载链接")
-		else:
-			print("下载完成")
-			time.sleep(10)
-			# 修改保存文件名
-			save_name = save_name.replace("《", "").replace("》", "").replace(" ", "").replace("！", "").replace(":", "").replace("\\", "").replace("/", "").replace("：", "").replace("*", "").replace("？", "").replace("?", "").replace("|", "").replace("\"", "").replace("\"", "").replace("<", "").replace(">", "")+'.mp4'
-			# cmd合并视频
-			os.system(r"copy /b "+ download_path + DS +"*   "+ os.getcwd() + DS + save_name)
-			time.sleep(5)
-			# 删除原视频
-			os.system("del /f /q /s "+ download_path + DS +"*.*")
-			time.sleep(1)
+            # 处理ts文件URL
+            ts_urls = []
+            for i, line in enumerate(content):
+                if "EXTINF" in line and i + 1 < len(content):
+                    url = content[i + 1]
+                    if self.base_url:
+                        url = urljoin(self.base_url, url)
+                    ts_urls.append(url)
+
+            if not ts_urls:
+                print("未找到视频片段")
+                return False
+
+            for i, url in enumerate(ts_urls):
+                self._download_segment(url, str(i+1).rjust(4, "0"))
+
+            self._merge_and_cleanup(save_name)
+            return True
+
+        except Exception as e:
+            print(f"处理失败: {str(e)}")
+            return False
+
+if __name__ == "__main__":
+    reader = LocalM3u8Reader('demo.m3u8', 'https://yef.coderatian.top')
+    reader.process_file('测试视频')

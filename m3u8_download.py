@@ -1,86 +1,90 @@
 #!/usr/bin/python
-# coding=utf8
-# coding:utf8
 # -*- coding: UTF-8 -*-
 
-from subprocess import call
-import urllib.request
 import requests
-import time
-import re
 import os
+import time
+from typing import List
+from tqdm import tqdm
 
-# 【脚本】直接解析m3u8并下载
+class M3u8Downloader:
+    def __init__(self):
+        self.DS = os.sep
+        self.download_path = os.path.join(os.getcwd(), "download")
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Connection': 'close'
+        }
+        self._init_folders()
 
-# 根据unix或win，DS为\或/
-DS = os.sep
+    def _init_folders(self):
+        if not os.path.exists(self.download_path):
+            os.makedirs(self.download_path)
 
-# 定义缓存文件路径
-runtime_path = os.getcwd() + DS + "runtime" + DS + "temp"
+    def download(self, url: str, save_name: str) -> bool:
+        try:
+            print(f"开始下载: {save_name}")
+            content = self._get_m3u8_content(url)
+            success = self._download_ts_files(content)
+            if success:
+                self._merge_and_cleanup(save_name)
+            return success
+        except Exception as e:
+            print(f"下载失败: {str(e)}")
+            return False
 
-# 定义IDM地址
-IDM = r'D:\Program Files\idman_lv\IDMan.exe'
+    def _get_m3u8_content(self, url: str) -> List[str]:
+        response = requests.get(url=url, headers=self.headers, timeout=30)
+        content = response.text.split("\n")
+        if content[0] != "#EXTM3U":
+            raise ValueError("非M3U8格式文件")
+        return content
 
-m3u8_list = [
-	'https://yun.66dm.net/SBDM/AinoUtagoewoKikasete.m3u8'
-]
-output_filename = [
-	'聆听爱的歌声吧'
-]
-headers = {
-	'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36',
-	'Connection':'close'
-}
+    def _download_ts_files(self, content: List[str]) -> bool:
+        ts_urls = [line.strip() for i, line in enumerate(content) 
+                  if "EXTINF" in content[i-1]]
+        
+        if not ts_urls:
+            print("未找到视频片段")
+            return False
+            
+        for i, url in enumerate(tqdm(ts_urls, desc="下载进度")):
+            filename = str(i+1).rjust(4, "0")
+            self._download_segment(url, filename)
+        return True
 
-def download(url, save_name):
-	download_path = os.getcwd() + DS + "download"
-	if not os.path.exists(download_path):
-		os.mkdir(download_path)
-	# 获取M3U8的文件内容
-	all_content = requests.get(url=url, headers=headers)
-	all_content = all_content.text
-	# 读取文件里的每一行
-	file_line = all_content.split("\n")
-	# 通过判断文件头来确定是否是M3U8文件
-	if file_line[0] != "#EXTM3U":
-		raise BaseException(u"非M3U8的链接")
-	else:
-		var_num = 0
-		unknow = True   # 用来判断是否找到了下载的地址
-		for index, line in enumerate(file_line):
-			# print(index, line)
-			if "EXTINF" in line:
-				# 递增视频序号
-				var_num = var_num + 1
-				unknow = False
-				pd_url = file_line[index + 1]
-				# print(pd_url)
-				res = requests.get(url=pd_url, headers=headers)
-				c_fule_name = str(var_num).rjust(4, "0")
-				print('下载到 '+ download_path + DS + c_fule_name)
-				with open(download_path + DS + c_fule_name, 'wb') as f:
-					f.write(res.content)
-					f.flush()
-				# # 调用IDM执行下载
-				# call([IDM, '/n','/d', pd_url, '/f', '..\\..\\phpStudy\\PHPTutorial\\WWW\\scan_tool_p\\download\\'+ c_fule_name])
-				# os._exit(0)
-		if unknow:
-			raise BaseException("未找到对应的下载链接")
-		else:
-			print("下载完成")
-			time.sleep(10)
-			# 修改保存文件名
-			save_name = save_name.replace("《", "").replace("》", "").replace(" ", "").replace("！", "").replace(":", "").replace("\\", "").replace("/", "").replace("：", "").replace("*", "").replace("？", "").replace("?", "").replace("|", "").replace("\"", "").replace("\"", "").replace("<", "").replace(">", "")+'.mp4'
-			# cmd合并视频
-			os.system(r"copy /b "+ download_path + DS +"*   "+ os.getcwd() + DS + save_name)
-			time.sleep(5)
-			# 删除原视频
-			os.system("del /f /q /s "+ download_path + DS +"*.*")
-			time.sleep(1)
+    def _download_segment(self, url: str, filename: str):
+        filepath = os.path.join(self.download_path, filename)
+        try:
+            response = requests.get(url=url, headers=self.headers, timeout=30)
+            with open(filepath, 'wb') as f:
+                f.write(response.content)
+        except Exception as e:
+            print(f"片段 {filename} 下载失败: {str(e)}")
 
-# 定义IDM地址
-IDM = r'D:/Program Files/idman_lv/IDMan.exe'
+    def _merge_and_cleanup(self, save_name: str):
+        save_name = self._sanitize_filename(save_name) + '.mp4'
+        output_path = os.path.join(os.getcwd(), save_name)
+        
+        print("正在合并视频片段...")
+        os.system(f'copy /b "{self.download_path}{self.DS}*" "{output_path}"')
+        time.sleep(2)
+        
+        print("清理临时文件...")
+        os.system(f'del /f /q /s "{self.download_path}{self.DS}*.*"')
 
-# 遍历list
-for i, val in enumerate(m3u8_list):
-	download(val, output_filename[i])
+    @staticmethod
+    def _sanitize_filename(filename: str) -> str:
+        invalid_chars = ['《', '》', ' ', '！', ':', '\\', '/', '：', '*', '？', 
+                        '?', '|', '"', '<', '>']
+        for char in invalid_chars:
+            filename = filename.replace(char, '')
+        return filename
+
+if __name__ == "__main__":
+    m3u8_list = ['https://yun.66dm.net/SBDM/AinoUtagoewoKikasete.m3u8']
+    output_filename = ['聆听爱的歌声吧']
+    
+    downloader = M3u8Downloader()
+    for url, filename in zip(m3u8_list, output_filename):
+        downloader.download(url, filename)
